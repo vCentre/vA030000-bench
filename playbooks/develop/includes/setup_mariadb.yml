@@ -1,0 +1,48 @@
+---
+  - name: Install MySQLdb in global env
+    pip: name=mysql-python version=1.2.5
+    become: yes
+    become_method: sudo
+
+  - name: Set root Password
+    mysql_user:
+      name=root
+      host={{ item }}
+      password={{ mysql_root_password }}
+      state=present
+      login_user=root
+    with_items:
+      - localhost
+    when: mysql_root_password is defined
+    become: yes
+    become_method: sudo
+
+    # when you have already defined mysql root password
+    ignore_errors: yes
+
+  - name: Add configuration
+    template: src={{ mysql_config_template }} dest={{ mysql_conf_dir }}/frappe.cnf owner=root mode=0644
+    become: yes
+    become_method: sudo
+
+  - name: restart mysql linux
+    service: name=mysql state=restarted
+    become: yes
+    become_method: sudo
+    when: ansible_os_family == 'RedHat' or ansible_os_family == 'Debian'
+
+  - name: add launchagents folder mac
+    file: path=~/Library/LaunchAgents state=directory
+    when: ansible_distribution == 'MacOSX'
+
+  - name: add mysql to mac startup
+    file: src=/usr/local/opt/mariadb/homebrew.mxcl.mariadb.plist path=~/Library/LaunchAgents/homebrew.mxcl.mariadb.plist state=link force=yes
+    when: ansible_distribution == 'MacOSX'
+
+  - name: stop mysql mac
+    command: launchctl unload ~/Library/LaunchAgents/homebrew.mxcl.mariadb.plist
+    when: ansible_distribution == 'MacOSX'
+
+  - name: start mysql mac
+    command: launchctl load ~/Library/LaunchAgents/homebrew.mxcl.mariadb.plist
+    when: ansible_distribution == 'MacOSX'
